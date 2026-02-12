@@ -3,10 +3,6 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-*.env
-platform/env/
-**/target/
-*.log
 
 ### STS ###
 .apt_generated
@@ -19,7 +15,6 @@ platform/env/
 
 ### IntelliJ IDEA ###
 .idea
-**/.idea/
 *.iws
 *.iml
 *.ipr
