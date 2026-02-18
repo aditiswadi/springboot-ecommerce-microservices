@@ -1,117 +1,43 @@
 services:
-  user-service:
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile.dev.dev.dev.dev.dev
-    image: user-service
-    container_name: user-service
-    env_file:
-      - ./user-service/order-service-db.env
-    environment:
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
-    depends_on:
-      - config-server
-      - user-service-db
-    networks:
-      - internal
-
-  product-service:
-    build:
-      context: ./product-service
-      dockerfile: Dockerfile.dev.dev.dev.dev.dev
-    image: product-service
-    container_name: product-service
-    env_file:
-      - ./product-service/order-service-db.env
-    environment:
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
-    depends_on:
-      - config-server
-      - product-service-db
-    networks:
-      - internal
-
-  order-service:
-    build:
-      context: ./order-service
-      dockerfile: Dockerfile.dev.dev.dev.dev.dev
-    image: order-service
-    container_name: order-service
-    env_file:
-      - ./order-service/order-service-db.env
-    environment:
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
-    depends_on:
-      - config-server
-      - order-service-db
-    networks:
-      - internal
-
-  user-service-db:
-    image: mongodb/mongodb-community-server:8.2.4-ubi8
-    container_name: user-service-db
-    env_file:
-      - ./user-service/order-service-db.env
-    networks:
-      - internal
-
-  product-service-db:
-    image: mysql:8.0
-    container_name: product-service-db
-    env_file:
-      - ./product-service/order-service-db.env
-    networks:
-      - internal
-
-  order-service-db:
-    image: postgres:16-alpine
-    container_name: order-service-db
-    env_file:
-      - ./order-service/order-service-db.env
-    networks:
-      - internal
-
-  mongo-express:
-    image: mongo-express:1.0.2
-    container_name: mongo-express
-    env_file:
-      - platform/env/mongo-express.env
-    networks:
-      - internal
-
-  phpmyadmin:
-    image: phpmyadmin:5.2.3
-    container_name: phpmyadmin
-    env_file:
-      - platform/env/phpmyadmin.env
-    networks:
-      - internal
-
-  pgadmin:
-    image: dpage/pgadmin4:9.11.0
-    container_name: pgadmin
-    env_file:
-      - platform/env/pgadmin.env
-    networks:
-      - internal
-
   config-server:
     build:
-      context: ./config-server
-      dockerfile: Dockerfile.dev.dev.dev.dev.dev
+      context: ../config-server
+      dockerfile: Dockerfile.dev
     image: config-server
     container_name: config-server
     env_file:
-      - ./config-server/order-service-db.env
+      - ../../../env/dev/config-server.env
+    volumes:
+      - ../config-server:/app
+      - m2-cache:/root/.m2
+    command: mvn spring-boot:run -Dspring-boot.run.fork=false
+    ports:
+      - "8888:8888"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8888/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - internal
 
   discovery-server:
     build:
-      context: ./discovery-server
-      dockerfile: Dockerfile.dev.dev.dev.dev.dev
+      context: ../discovery-server
+      dockerfile: Dockerfile.dev
     image: discovery-server
     container_name: discovery-server
+    volumes:
+      - ../discovery-server:/app
+      - m2-cache:/root/.m2
+    command: mvn spring-boot:run -Dspring-boot.run.fork=false
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - internal
 
@@ -119,10 +45,169 @@ services:
     image: rabbitmq:4.2.3-management
     container_name: rabbitmq
     env_file:
-      - platform/env/rabbitmq.env
+      - ../../../env/dev/rabbitmq.env
+    ports:
+      - "5672:5672"
+      - "15672:15672"
     networks:
-      internal:
+      - internal
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    env_file:
+      - ../../../env/dev/mongo-express.env
+    ports:
+      - "8081:8081"
+    depends_on:
+      user-service-db:
+        condition: service_started
+    networks:
+      - internal
+
+  phpmyadmin:
+    image: phpmyadmin:5.2.3
+    container_name: phpmyadmin
+    env_file:
+      - ../../../env/dev/phpmyadmin.env
+    ports:
+      - "8082:80"
+    depends_on:
+      product-service-db:
+        condition: service_started
+    networks:
+      - internal
+
+  pgadmin:
+    image: dpage/pgadmin4:9.11.0
+    container_name: pgadmin
+    env_file:
+      - ../../../env/dev/pgadmin.env
+    ports:
+      - "8083:80"
+    depends_on:
+      order-service-db:
+        condition: service_started
+    networks:
+      - internal
+
+  user-service-db:
+    image: mongodb/mongodb-community-server:8.2.4-ubi8
+    container_name: user-service-db
+    env_file:
+      - ../../../env/dev/user-service-db.env
+    volumes:
+      - user_service_db:/data/db
+    networks:
+      - internal
+
+  product-service-db:
+    image: mysql:8.0
+    container_name: product-service-db
+    env_file:
+      - ../../../env/dev/product-service-db.env
+    volumes:
+      - product_service_db:/var/lib/mysql
+    networks:
+      - internal
+
+  order-service-db:
+    image: postgres:16-alpine
+    container_name: order-service-db
+    env_file:
+      - ../../../env/dev/order-service-db.env
+    volumes:
+      - order_service_db:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  user-service:
+    build:
+      context: ../../services/user-service
+      dockerfile: Dockerfile.dev
+    image: user-service
+    container_name: user-service
+    env_file:
+      - ../../../env/dev/user-service-db.env
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    volumes:
+      - ../../services/user-service:/app
+      - m2-cache:/root/.m2
+    command: mvn spring-boot:run -Dspring-boot.run.fork=false
+    ports:
+      - "8001:8001"
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      user-service-db:
+        condition: service_started
+    networks:
+      - internal
+
+  product-service:
+    build:
+      context: ../../services/product-service
+      dockerfile: Dockerfile.dev
+    image: product-service
+    container_name: product-service
+    env_file:
+      - ../../../env/dev/product-service-db.env
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    volumes:
+      - ../../services/product-service:/app
+      - m2-cache:/root/.m2
+    command: mvn spring-boot:run -Dspring-boot.run.fork=false
+    ports:
+      - "8002:8002"
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      product-service-db:
+        condition: service_started
+    networks:
+      - internal
+
+  order-service:
+    build:
+      context: ../../services/order-service
+      dockerfile: Dockerfile.dev
+    image: order-service
+    container_name: order-service
+    env_file:
+      - ../../../env/dev/order-service-db.env
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    volumes:
+      - ../../services/order-service:/app
+      - m2-cache:/root/.m2
+    command: mvn spring-boot:run -Dspring-boot.run.fork=false
+    ports:
+      - "8003:8003"
+    depends_on:
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      order-service-db:
+        condition: service_started
+    networks:
+      - internal
 
 networks:
   internal:
     driver: bridge
+
+volumes:
+  user_service_db:
+  product_service_db:
+  order_service_db:
+  m2-cache:
